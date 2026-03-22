@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>591 案源追蹤 — 宸室雅居</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background:#f0f2f5; color:#333; }
+.header { background: linear-gradient(135deg, #1a365d, #2d5d8a); color:#fff; padding:20px 30px; }
+.header h1 { font-size:24px; margin-bottom:4px; }
+.header .subtitle { opacity:0.8; font-size:14px; }
+.stats { display:flex; gap:15px; padding:15px 30px; background:#fff; border-bottom:1px solid #e0e0e0; flex-wrap:wrap; }
+.stat-card { background:#f8f9fa; border-radius:8px; padding:12px 20px; min-width:120px; }
+.stat-card .num { font-size:28px; font-weight:700; color:#1a365d; }
+.stat-card .label { font-size:12px; color:#666; }
+.filters { padding:12px 30px; background:#fff; border-bottom:1px solid #e0e0e0; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.filters label { font-size:13px; color:#555; }
+.filters select, .filters input { padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+.filters button { padding:6px 16px; background:#1a365d; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+.filters button:hover { background:#2d5d8a; }
+.table-wrap { padding:15px 30px 30px; overflow-x:auto; }
+table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+th { background:#1a365d; color:#fff; padding:10px 12px; text-align:left; font-size:13px; cursor:pointer; white-space:nowrap; }
+th:hover { background:#2d5d8a; }
+td { padding:9px 12px; border-bottom:1px solid #eee; font-size:13px; }
+tr:hover { background:#f0f7ff; }
+.tag { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; }
+.tag-owner { background:#d4edda; color:#155724; }
+.tag-agent { background:#fff3cd; color:#856404; }
+.tag-broker { background:#f8d7da; color:#721c24; }
+.tag-unknown { background:#e2e3e5; color:#383d41; }
+.tag-new { background:#cce5ff; color:#004085; }
+.tag-old { background:#f8d7da; color:#721c24; }
+.tag-delisted { background:#dc3545; color:#fff; }
+.tag-active { background:#28a745; color:#fff; }
+.tag-hot { background:#dc3545; color:#fff; font-weight:700; animation: pulse 1.5s infinite; }
+.tag-warm { background:#fd7e14; color:#fff; }
+.tag-maybe { background:#17a2b8; color:#fff; }
+.below { color:#28a745; font-weight:700; }
+.above { color:#999; }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+.row-delisted { opacity:0.5; background:#f5f5f5; }
+.price { font-weight:700; color:#c0392b; }
+a.link { color:#2980b9; text-decoration:none; }
+a.link:hover { text-decoration:underline; }
+.empty { text-align:center; padding:40px; color:#999; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏠 591 案源追蹤</h1>
+  <div class="subtitle">宸室雅居 — 最後更新 2026/03/22 11:24 | 篩選：整層住家 | 2萬-4萬 | 20坪+ | 2衛+ | 排除頂加</div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="filters">
+  <label>縣市</label>
+  <select id="fRegion"><option value="">全部</option><option>台北市</option><option>新北市</option></select>
+  <label>行政區</label>
+  <select id="fDistrict"><option value="">全部</option></select>
+  <label>身份</label>
+  <select id="fIdentity"><option value="">全部</option><option>屋主</option><option>房仲</option><option>代理人</option></select>
+  <label>狀態</label>
+  <select id="fStatus"><option value="">全部</option><option value="active">上架中</option><option value="delisted">已下架</option></select>
+  <label>排序</label>
+  <select id="fSort">
+    <option value="days_listed">刊登天數（新→舊）</option>
+    <option value="price_asc">租金（低→高）</option>
+    <option value="price_desc">租金（高→低）</option>
+    <option value="area_desc">坪數（大→小）</option>
+    <option value="diff_asc">低於行情優先</option>
+  </select>
+  <label>搜尋</label>
+  <input type="text" id="fSearch" placeholder="關鍵字..." style="width:140px">
+  <button onclick="renderTable()">篩選</button>
+  <button onclick="resetFilters()" style="background:#6c757d">重置</button>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th onclick="sortBy('title')">物件名稱</th>
+        <th onclick="sortBy('price_num')">租金</th>
+        <th onclick="sortBy('area_num')">坪數</th>
+        <th>類型</th>
+        <th>地點</th>
+        <th onclick="sortBy('days_listed')">591刊登</th>
+        <th>追蹤天數</th>
+        <th>衛浴</th>
+        <th>身份</th>
+        <th>狀態</th>
+        <th onclick="sortBy('diff')">行情比較</th>
+        <th>建議</th>
+        <th>連結</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">沒有符合條件的物件</div>
+</div>
+
+<script>
+const DATA = [{"id": "20900119", "title": "❤可租補❤可戶籍❤時尚新裝潢❤新冷氣廚具沙發❤電梯3房含管", "price": "35,000元/月", "price_num": 35000, "area": "37.3坪", "area_num": 37.3, "rooms": "3房", "building_type": "", "district": "板橋區", "region": "新北市", "url": "https://rent.591.com.tw/20900119", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/21", "days_on_591": 1, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:57.932212", "scraped_at": "2026-03-22T11:19:57.932212", "market_median": 23000, "price_diff_pct": 52, "price_vs_market": "高於行情 52%", "recommend": ""}, {"id": "20900591", "title": "蘆洲三民公寓(近捷運)", "price": "23,000元/月", "price_num": 23000, "area": "25坪", "area_num": 25.0, "rooms": "3房", "building_type": "公寓", "district": "新店區", "region": "新北市", "url": "https://rent.591.com.tw/20900591", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/22", "days_on_591": 0, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:48.056884", "scraped_at": "2026-03-22T11:19:48.056884", "market_median": 25000, "price_diff_pct": -8, "price_vs_market": "略低行情 8%", "recommend": "可考慮"}, {"id": "20892412", "title": "可租補♥︎台水台電♥︎天然氣廚房&熱水器♥︎低樓層♥︎大四房", "price": "32,943元/月", "price_num": 32943, "area": "31.4坪", "area_num": 31.4, "rooms": "2房", "building_type": "", "district": "中和區", "region": "新北市", "url": "https://rent.591.com.tw/20892412", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/20", "days_on_591": 2, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 24000, "price_diff_pct": 37, "price_vs_market": "高於行情 37%", "recommend": ""}, {"id": "20894377", "title": "近麗林小.崇林中.生活便利.設備家具有", "price": "25,000元/月", "price_num": 25000, "area": "20坪", "area_num": 20.0, "rooms": "2房", "building_type": "", "district": "林口區", "region": "新北市", "url": "https://rent.591.com.tw/20894377", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/20", "days_on_591": 2, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 25000, "price_diff_pct": 0, "price_vs_market": "略低行情 0%", "recommend": "可考慮"}, {"id": "20897829", "title": "北大WISH溫馨美3房", "price": "28,000元/月", "price_num": 28000, "area": "37坪", "area_num": 37.0, "rooms": "3房", "building_type": "", "district": "三峽區", "region": "新北市", "url": "https://rent.591.com.tw/20897829", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/21", "days_on_591": 1, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 19000, "price_diff_pct": 47, "price_vs_market": "高於行情 47%", "recommend": ""}, {"id": "20884578", "title": "🔥可租補(專)景安捷運站三房美寓可入戶籍🔥", "price": "32,000元/月", "price_num": 32000, "area": "31.6坪", "area_num": 31.6, "rooms": "3房", "building_type": "", "district": "中和區", "region": "新北市", "url": "https://rent.591.com.tw/20884578", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/19", "days_on_591": 3, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 24000, "price_diff_pct": 33, "price_vs_market": "高於行情 33%", "recommend": ""}, {"id": "20898172", "title": "天祥街二樓三房兩衛", "price": "26,000元/月", "price_num": 26000, "area": "31坪", "area_num": 31.0, "rooms": "3房", "building_type": "", "district": "新莊區", "region": "新北市", "url": "https://rent.591.com.tw/20898172", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/21", "days_on_591": 1, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 23000, "price_diff_pct": 13, "price_vs_market": "高於行情 13%", "recommend": ""}, {"id": "20889915", "title": "三五好友合租、生活機能優、非頂樓、採光好、空氣佳、空間大", "price": "25,000元/月", "price_num": 25000, "area": "32坪", "area_num": 32.0, "rooms": "3房", "building_type": "", "district": "三重區", "region": "新北市", "url": "https://rent.591.com.tw/20889915", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/20", "days_on_591": 2, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:19:39.007928", "scraped_at": "2026-03-22T11:19:39.007928", "market_median": 24000, "price_diff_pct": 4, "price_vs_market": "符合行情", "recommend": ""}, {"id": "20900893", "title": "象山捷運站。24小時管理，獨立房間對外窗，垃圾代收", "price": "30,800元/月", "price_num": 30800, "area": "12坪", "area_num": 12.0, "rooms": "1房", "building_type": "", "district": "信義區", "region": "台北市", "url": "https://rent.591.com.tw/20900893", "bathrooms": "", "identity": "房仲", "post_date": "2026/03/22", "days_on_591": 0, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:18:51.622327", "scraped_at": "2026-03-22T11:18:51.622327", "market_median": 41132, "price_diff_pct": -25, "price_vs_market": "低於行情 25%", "recommend": "強烈建議去談"}, {"id": "20863516", "title": "自租一樓適住辦工作室簽約室.2房1廳3衛1廚永春松山捷運站", "price": "34,998元/月", "price_num": 34998, "area": "22坪", "area_num": 22.0, "rooms": "2房", "building_type": "", "district": "信義區", "region": "台北市", "url": "https://rent.591.com.tw/20863516", "bathrooms": "3衛", "identity": "房仲", "post_date": "2026/03/16", "days_on_591": 6, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:18:51.621332", "scraped_at": "2026-03-22T11:18:51.621332", "market_median": 41132, "price_diff_pct": -15, "price_vs_market": "低於行情 15%", "recommend": "建議去談"}, {"id": "20891602", "title": "景美女中河堤溫馨電梯華夏/3房2廳2衛/寵物不可", "price": "33,000元/月", "price_num": 33000, "area": "26坪", "area_num": 26.0, "rooms": "3房", "building_type": "", "district": "文山區", "region": "台北市", "url": "https://rent.591.com.tw/20891602", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/20", "days_on_591": 2, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:18:51.621332", "scraped_at": "2026-03-22T11:18:51.621332", "market_median": 26000, "price_diff_pct": 27, "price_vs_market": "高於行情 27%", "recommend": ""}, {"id": "20877715", "title": "明星學區，八德路三段光復北路", "price": "35,000元/月", "price_num": 35000, "area": "40坪", "area_num": 40.0, "rooms": "3房", "building_type": "", "district": "松山區", "region": "台北市", "url": "https://rent.591.com.tw/20877715", "bathrooms": "2衛", "identity": "房仲", "post_date": "2026/03/18", "days_on_591": 4, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:18:51.621332", "scraped_at": "2026-03-22T11:18:51.621332", "market_median": 44000, "price_diff_pct": -20, "price_vs_market": "低於行情 20%", "recommend": "強烈建議去談"}, {"id": "20860257", "title": "西湖站內科3房", "price": "40,000元/月", "price_num": 40000, "area": "22坪", "area_num": 22.0, "rooms": "3房", "building_type": "", "district": "內湖區", "region": "台北市", "url": "https://rent.591.com.tw/20860257", "bathrooms": "2衛", "identity": "屋主", "post_date": "2026/03/15", "days_on_591": 7, "first_seen": "2026/03/22", "days_tracked": 0, "floor": "", "top_floor_addition": false, "is_active": true, "last_checked": "2026-03-22T11:18:51.621332", "scraped_at": "2026-03-22T11:18:51.621332", "market_median": 35000, "price_diff_pct": 14, "price_vs_market": "高於行情 14%", "recommend": ""}];
+let currentSort = 'days_listed';
+let sortAsc = true;
+
+function identityTag(id) {
+  const map = {
+    '屋主': 'tag-owner', '房仲': 'tag-broker',
+    '代理人': 'tag-agent',
+  };
+  return '<span class="tag ' + (map[id] || 'tag-unknown') + '">' + (id || '未標示') + '</span>';
+}
+
+function daysTag(d) {
+  if (d <= 3) return '<span class="tag tag-new">' + d + '天</span>';
+  if (d >= 14) return '<span class="tag tag-old">' + d + '天</span>';
+  return d + '天';
+}
+
+function getFiltered() {
+  let items = [...DATA];
+  const region = document.getElementById('fRegion').value;
+  const identity = document.getElementById('fIdentity').value;
+  const search = document.getElementById('fSearch').value.toLowerCase();
+
+  const district = document.getElementById('fDistrict').value;
+  const status = document.getElementById('fStatus').value;
+
+  if (region) items = items.filter(r => r.region === region);
+  if (district) items = items.filter(r => r.district === district);
+  if (identity) items = items.filter(r => r.identity === identity);
+  if (status === 'active') items = items.filter(r => r.is_active !== false);
+  if (status === 'delisted') items = items.filter(r => r.is_active === false);
+  if (search) items = items.filter(r =>
+    (r.title + r.district + r.building_type + r.rooms).toLowerCase().includes(search)
+  );
+
+  const sort = document.getElementById('fSort').value;
+  if (sort === 'price_asc') items.sort((a,b) => a.price_num - b.price_num);
+  else if (sort === 'price_desc') items.sort((a,b) => b.price_num - a.price_num);
+  else if (sort === 'area_desc') items.sort((a,b) => b.area_num - a.area_num);
+  else if (sort === 'diff_asc') items.sort((a,b) => (a.price_diff_pct||999) - (b.price_diff_pct||999));
+  else items.sort((a,b) => a.days_listed - b.days_listed);
+
+  return items;
+}
+
+function renderTable() {
+  const items = getFiltered();
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+
+  if (!items.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = items.map((r, i) => {
+    const rowClass = r.is_active === false ? 'row-delisted' : '';
+    const statusTag = r.is_active === false
+      ? '<span class="tag tag-delisted">已下架</span>'
+      : '<span class="tag tag-active">上架中</span>';
+    const d591 = r.days_on_591 || r.days_listed || 0;
+    const dTrack = r.days_tracked || 0;
+    return `
+    <tr class="${rowClass}">
+      <td>${i+1}</td>
+      <td>${r.title}</td>
+      <td class="price">${r.price || '-'}</td>
+      <td>${r.area || '-'}</td>
+      <td>${r.building_type || '-'} ${r.rooms || ''}</td>
+      <td>${r.region} ${r.district}</td>
+      <td>${d591}天${r.post_date ? '<br><small>'+r.post_date+'</small>' : ''}</td>
+      <td>${dTrack}天${r.first_seen ? '<br><small>'+r.first_seen+'起</small>' : ''}</td>
+      <td>${r.bathrooms || '-'}</td>
+      <td>${identityTag(r.identity)}</td>
+      <td>${statusTag}</td>
+      <td class="${(r.price_diff_pct||0) <= 0 ? 'below' : 'above'}">${r.price_vs_market || '-'}${r.market_median ? '<br><small>行情 $'+r.market_median.toLocaleString()+'</small>' : ''}</td>
+      <td>${r.recommend === '強烈建議去談' ? '<span class="tag tag-hot">🔥 強烈建議</span>' : r.recommend === '建議去談' ? '<span class="tag tag-warm">👍 建議去談</span>' : r.recommend === '可考慮' ? '<span class="tag tag-maybe">可考慮</span>' : '-'}</td>
+      <td><a href="${r.url}" target="_blank" class="link">查看</a></td>
+    </tr>`;
+  }).join('');
+
+  // 更新統計
+  const ownerCount = items.filter(r => r.identity === '屋主').length;
+  const avgPrice = items.length ? Math.round(items.reduce((s,r) => s+r.price_num, 0) / items.length) : 0;
+  const newCount = items.filter(r => (r.days_on_591||r.days_listed||0) <= 3).length;
+  const activeCount = items.filter(r => r.is_active !== false).length;
+  const delistedCount = items.filter(r => r.is_active === false).length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="num">${items.length}</div><div class="label">全部物件</div></div>
+    <div class="stat-card"><div class="num">${activeCount}</div><div class="label">上架中</div></div>
+    <div class="stat-card"><div class="num">${delistedCount}</div><div class="label">已下架</div></div>
+    <div class="stat-card"><div class="num">${ownerCount}</div><div class="label">屋主直租</div></div>
+    <div class="stat-card"><div class="num">${newCount}</div><div class="label">3天內新上架</div></div>
+    <div class="stat-card"><div class="num">${avgPrice.toLocaleString()}</div><div class="label">平均月租</div></div>
+    <div class="stat-card"><div class="num" style="color:#dc3545">${items.filter(r=>r.recommend).length}</div><div class="label">🔥 建議去談</div></div>
+  `;
+}
+
+function resetFilters() {
+  document.getElementById('fRegion').value = '';
+  document.getElementById('fDistrict').value = '';
+  document.getElementById('fIdentity').value = '';
+  document.getElementById('fStatus').value = '';
+  updateDistrictOptions();
+  document.getElementById('fSort').value = 'days_listed';
+  document.getElementById('fSearch').value = '';
+  renderTable();
+}
+
+function sortBy(key) {
+  // toggle
+  const sel = document.getElementById('fSort');
+  if (key === 'price_num') sel.value = sel.value === 'price_asc' ? 'price_desc' : 'price_asc';
+  else if (key === 'area_num') sel.value = 'area_desc';
+  else if (key === 'diff') sel.value = 'diff_asc';
+  else sel.value = 'days_listed';
+  renderTable();
+}
+
+// 動態產生行政區下拉選項
+function updateDistrictOptions() {
+  const region = document.getElementById('fRegion').value;
+  const districtSet = new Set();
+  DATA.forEach(r => {
+    if (r.district && (!region || r.region === region)) districtSet.add(r.district);
+  });
+  const sel = document.getElementById('fDistrict');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">全部</option>';
+  [...districtSet].sort().forEach(d => {
+    sel.innerHTML += `<option>${d}</option>`;
+  });
+  if (districtSet.has(prev)) sel.value = prev;
+}
+document.getElementById('fRegion').addEventListener('change', () => { updateDistrictOptions(); renderTable(); });
+updateDistrictOptions();
+renderTable();
+</script>
+</body>
+</html>
